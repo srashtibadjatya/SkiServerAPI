@@ -1,8 +1,11 @@
 import com.google.gson.Gson;
-import dao.ResortInfoDao;
-import dao.ResortsDao;
+import model.LiftRide;
+import model.ResponseMsg;
+import model.SkierVertical;
+import model.SkierVerticalResorts;
 
 import javax.servlet.http.HttpServletResponse;
+import java.io.BufferedReader;
 import java.io.IOException;
 import java.util.Random;
 
@@ -10,38 +13,71 @@ public class SkierServlet extends javax.servlet.http.HttpServlet {
 
     private static final Gson gson = new Gson();
 
-    protected void doPost(javax.servlet.http.HttpServletRequest request, javax.servlet.http.HttpServletResponse response) throws javax.servlet.ServletException, IOException {
-
-    }
-
-    protected void doGet(javax.servlet.http.HttpServletRequest req, javax.servlet.http.HttpServletResponse res) throws javax.servlet.ServletException, IOException {
+    protected void doPost(javax.servlet.http.HttpServletRequest req, javax.servlet.http.HttpServletResponse res) throws javax.servlet.ServletException, IOException {
         int pathLength;
 
-        res.setContentType("application/json");
         String urlPath = req.getPathInfo();
+
+        res.setContentType("application/json");
 
         // check we have a URL!
         if (urlPath == null || urlPath.isEmpty()) {
             res.setStatus(HttpServletResponse.SC_BAD_REQUEST);
-            res.getWriter().write(gson.toJson("Invalid inputs supplied"));
+            ResponseMsg output = new ResponseMsg().message("Invalid inputs supplied");
+            res.getWriter().write(gson.toJson(output));
             return;
         }
 
         String[] urlParts = urlPath.split("/");
-        // and now validate url path and return the response status code
-        // (and maybe also some value if input is valid)
 
         pathLength = urlParts.length;
 
         if (!isUrlValid(urlParts, pathLength)) {
             res.setStatus(HttpServletResponse.SC_BAD_REQUEST);
-            res.getWriter().write(gson.toJson("Invalid inputs supplied"));
+            ResponseMsg output = new ResponseMsg().message("Invalid inputs supplied");
+            res.getWriter().write(gson.toJson(output));
+        }
+
+        BufferedReader reqBody = req.getReader();
+
+        try {
+            gson.fromJson(reqBody, LiftRide.class);
+            res.setStatus(HttpServletResponse.SC_CREATED);
+        } catch (Exception ex) {
+            res.setStatus(HttpServletResponse.SC_BAD_REQUEST);
+            ResponseMsg output = new ResponseMsg().message("Invalid inputs supplied");
+            res.getWriter().write(gson.toJson(output));
+        }
+    }
+
+    protected void doGet(javax.servlet.http.HttpServletRequest req, javax.servlet.http.HttpServletResponse res) throws javax.servlet.ServletException, IOException {
+        int pathLength;
+        int totalVertical = 10;
+        String urlPath = req.getPathInfo();
+
+        res.setContentType("application/json");
+
+        // check we have a URL!
+        if (urlPath == null || urlPath.isEmpty()) {
+            res.setStatus(HttpServletResponse.SC_BAD_REQUEST);
+            ResponseMsg output = new ResponseMsg().message("Invalid inputs supplied");
+            res.getWriter().write(gson.toJson(output));
+            return;
+        }
+
+        String[] urlParts = urlPath.split("/");
+
+        pathLength = urlParts.length;
+
+        if (!isUrlValid(urlParts, pathLength)) {
+            res.setStatus(HttpServletResponse.SC_BAD_REQUEST);
+            ResponseMsg output = new ResponseMsg().message("Invalid inputs supplied");
+            res.getWriter().write(gson.toJson(output));
         } else {
             if (pathLength == 8) {
                 res.setStatus(HttpServletResponse.SC_OK);
                 // do any sophisticated processing with urlParts which contains all the url params
-                // TODO: process url params in `urlParts`
-                res.getWriter().write(gson.toJson(getRandomNumber()));
+                res.getWriter().write(gson.toJson(totalVertical));
                 return;
             }
 
@@ -50,26 +86,30 @@ public class SkierServlet extends javax.servlet.http.HttpServlet {
 
             if(resort == null) {
                 res.setStatus(HttpServletResponse.SC_BAD_REQUEST);
-                res.getWriter().write(gson.toJson("Invalid inputs supplied"));
+                ResponseMsg output = new ResponseMsg().message("Invalid inputs supplied");
+                res.getWriter().write(gson.toJson(output));
                 return;
             }
 
             res.setStatus(HttpServletResponse.SC_OK);
 
             if(season == null) {
-                ResortsDao output = new ResortsDao();
-                output.resorts.add(new ResortInfoDao("", getRandomNumber()));
+                SkierVertical output = new SkierVertical();
+                SkierVerticalResorts skierVerticalResorts = new SkierVerticalResorts().seasonID("All");
+                skierVerticalResorts.setTotalVert(totalVertical);
+                output.addResortsItem(skierVerticalResorts);
                 res.getWriter().write(gson.toJson(output));
             } else {
-                ResortsDao output = new ResortsDao();
-                output.resorts.add(new ResortInfoDao(season, getRandomNumber()));
+                SkierVertical output = new SkierVertical();
+                SkierVerticalResorts skierVerticalResorts = new SkierVerticalResorts().seasonID(season);
+                skierVerticalResorts.setTotalVert(totalVertical);
+                output.addResortsItem(skierVerticalResorts);
                 res.getWriter().write(gson.toJson(output));
             }
         }
     }
 
     private boolean isUrlValid(String[] urlPath, int pathLength) {
-        // TODO: validate the request url path according to the API spec
         // urlPath  = "/1/seasons/2019/day/1/skier/123"
         // urlParts = [, 1, seasons, 2019, day, 1, skier, 123]
         if (pathLength == 8) {
