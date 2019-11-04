@@ -1,19 +1,18 @@
 import com.google.gson.Gson;
-import model.LiftRide;
-import model.ResponseMsg;
-import model.SkierVertical;
-import model.SkierVerticalResorts;
+import dao.ResortsLiftRidesDao;
+import model.*;
 
 import javax.servlet.http.HttpServletResponse;
 import java.io.BufferedReader;
 import java.io.IOException;
+import java.sql.SQLException;
 import java.util.Random;
 
 public class SkierServlet extends javax.servlet.http.HttpServlet {
 
     private static final Gson gson = new Gson();
 
-    protected void doPost(javax.servlet.http.HttpServletRequest req, javax.servlet.http.HttpServletResponse res) throws javax.servlet.ServletException, IOException {
+    protected void doPost(javax.servlet.http.HttpServletRequest req, javax.servlet.http.HttpServletResponse res) throws IOException {
         int pathLength;
 
         String urlPath = req.getPathInfo();
@@ -41,8 +40,30 @@ public class SkierServlet extends javax.servlet.http.HttpServlet {
         BufferedReader reqBody = req.getReader();
 
         try {
-            gson.fromJson(reqBody, LiftRide.class);
+            LiftRide reqLifeRide = gson.fromJson(reqBody, LiftRide.class);
+            ResortsLiftRidesDao resortsLiftRidesDao = new ResortsLiftRidesDao();
+            int resortId = Integer.parseInt(urlParts[1]);
+            String seasonId = urlParts[3];
+            String dayId = urlParts[5];
+            int skierId = Integer.parseInt(urlParts[7]);
+            int liftId = reqLifeRide.getLiftID();
+            int rideTime = reqLifeRide.getTime();
+
+            StringBuilder sb = new StringBuilder();
+            sb.append(resortId).append(seasonId).append(dayId).append(skierId).append(rideTime);
+
+            resortsLiftRidesDao
+                    .createLiftRide(new ResortsLiftRides(sb.toString(), resortId, seasonId, dayId, skierId, liftId, rideTime, (liftId * 10)));
+
             res.setStatus(HttpServletResponse.SC_CREATED);
+        } catch (ClassNotFoundException cex) {
+            res.setStatus(HttpServletResponse.SC_INTERNAL_SERVER_ERROR);
+            ResponseMsg output = new ResponseMsg().message(cex.getMessage());
+            res.getWriter().write(gson.toJson(output));
+        } catch (SQLException se) {
+            res.setStatus(HttpServletResponse.SC_NOT_FOUND);
+            ResponseMsg output = new ResponseMsg().message("Data Not Found: " + se.getMessage());
+            res.getWriter().write(gson.toJson(output));
         } catch (Exception ex) {
             res.setStatus(HttpServletResponse.SC_BAD_REQUEST);
             ResponseMsg output = new ResponseMsg().message("Invalid inputs supplied");
@@ -50,9 +71,9 @@ public class SkierServlet extends javax.servlet.http.HttpServlet {
         }
     }
 
-    protected void doGet(javax.servlet.http.HttpServletRequest req, javax.servlet.http.HttpServletResponse res) throws javax.servlet.ServletException, IOException {
+    protected void doGet(javax.servlet.http.HttpServletRequest req, javax.servlet.http.HttpServletResponse res) throws IOException {
         int pathLength;
-        int totalVertical = 10;
+        int totalVertical = 0;
         String urlPath = req.getPathInfo();
 
         res.setContentType("application/json");
@@ -75,10 +96,24 @@ public class SkierServlet extends javax.servlet.http.HttpServlet {
             res.getWriter().write(gson.toJson(output));
         } else {
             if (pathLength == 8) {
-                res.setStatus(HttpServletResponse.SC_OK);
-                // do any sophisticated processing with urlParts which contains all the url params
-                res.getWriter().write(gson.toJson(totalVertical));
-                return;
+                try {
+                    ResortsLiftRidesDao resortsLiftRidesDao = new ResortsLiftRidesDao();
+                    totalVertical = resortsLiftRidesDao
+                            .getTotalVertical(Integer.parseInt(urlParts[1]), urlParts[3], urlParts[5], Integer.parseInt(urlParts[7]));
+                    res.setStatus(HttpServletResponse.SC_OK);
+                    res.getWriter().write(gson.toJson(totalVertical));
+                    return;
+                } catch (ClassNotFoundException cex) {
+                    res.setStatus(HttpServletResponse.SC_INTERNAL_SERVER_ERROR);
+                    ResponseMsg output = new ResponseMsg().message(cex.getMessage());
+                    res.getWriter().write(gson.toJson(output));
+                    return;
+                } catch (SQLException se) {
+                    res.setStatus(HttpServletResponse.SC_NOT_FOUND);
+                    ResponseMsg output = new ResponseMsg().message("Data Not Found: " + se.getMessage());
+                    res.getWriter().write(gson.toJson(output));
+                    return;
+                }
             }
 
             String resort = req.getParameter("resort");
