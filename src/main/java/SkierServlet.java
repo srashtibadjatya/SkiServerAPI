@@ -13,6 +13,8 @@ public class SkierServlet extends javax.servlet.http.HttpServlet {
     private static final Gson gson = new Gson();
 
     protected void doPost(javax.servlet.http.HttpServletRequest req, javax.servlet.http.HttpServletResponse res) throws IOException {
+        long startTime = System.currentTimeMillis();
+
         int pathLength;
 
         String urlPath = req.getPathInfo();
@@ -24,6 +26,9 @@ public class SkierServlet extends javax.servlet.http.HttpServlet {
             res.setStatus(HttpServletResponse.SC_BAD_REQUEST);
             ResponseMsg output = new ResponseMsg().message("Invalid inputs supplied");
             res.getWriter().write(gson.toJson(output));
+
+            int latency = (int) (System.currentTimeMillis() - startTime);
+            MyServletContextListener.stats.add(new RequestsLatencies("/skiers", "POST", latency));
             return;
         }
 
@@ -35,6 +40,10 @@ public class SkierServlet extends javax.servlet.http.HttpServlet {
             res.setStatus(HttpServletResponse.SC_BAD_REQUEST);
             ResponseMsg output = new ResponseMsg().message("Invalid inputs supplied");
             res.getWriter().write(gson.toJson(output));
+
+            int latency = (int) (System.currentTimeMillis() - startTime);
+            MyServletContextListener.stats.add(new RequestsLatencies("/skiers", "POST", latency));
+            return;
         }
 
         BufferedReader reqBody = req.getReader();
@@ -68,10 +77,14 @@ public class SkierServlet extends javax.servlet.http.HttpServlet {
             res.setStatus(HttpServletResponse.SC_BAD_REQUEST);
             ResponseMsg output = new ResponseMsg().message("Invalid inputs supplied");
             res.getWriter().write(gson.toJson(output));
+        } finally {
+            int latency = (int) (System.currentTimeMillis() - startTime);
+            MyServletContextListener.stats.add(new RequestsLatencies("/skiers", "POST", latency));
         }
     }
 
     protected void doGet(javax.servlet.http.HttpServletRequest req, javax.servlet.http.HttpServletResponse res) throws IOException {
+        long startTime = System.currentTimeMillis();
         int pathLength;
         int totalVertical = 0;
         String urlPath = req.getPathInfo();
@@ -83,6 +96,9 @@ public class SkierServlet extends javax.servlet.http.HttpServlet {
             res.setStatus(HttpServletResponse.SC_BAD_REQUEST);
             ResponseMsg output = new ResponseMsg().message("Invalid inputs supplied");
             res.getWriter().write(gson.toJson(output));
+
+            int latency = (int) (System.currentTimeMillis() - startTime);
+            MyServletContextListener.stats.add(new RequestsLatencies("/skiers", "GET", latency));
             return;
         }
 
@@ -94,6 +110,10 @@ public class SkierServlet extends javax.servlet.http.HttpServlet {
             res.setStatus(HttpServletResponse.SC_BAD_REQUEST);
             ResponseMsg output = new ResponseMsg().message("Invalid inputs supplied");
             res.getWriter().write(gson.toJson(output));
+
+            int latency = (int) (System.currentTimeMillis() - startTime);
+            MyServletContextListener.stats.add(new RequestsLatencies("/skiers", "GET", latency));
+            return;
         } else {
             if (pathLength == 8) {
                 try {
@@ -102,18 +122,19 @@ public class SkierServlet extends javax.servlet.http.HttpServlet {
                             .getTotalVertical(Integer.parseInt(urlParts[1]), urlParts[3], urlParts[5], Integer.parseInt(urlParts[7]));
                     res.setStatus(HttpServletResponse.SC_OK);
                     res.getWriter().write(gson.toJson(totalVertical));
-                    return;
                 } catch (ClassNotFoundException cex) {
                     res.setStatus(HttpServletResponse.SC_INTERNAL_SERVER_ERROR);
                     ResponseMsg output = new ResponseMsg().message(cex.getMessage());
                     res.getWriter().write(gson.toJson(output));
-                    return;
                 } catch (SQLException se) {
                     res.setStatus(HttpServletResponse.SC_NOT_FOUND);
                     ResponseMsg output = new ResponseMsg().message("Data Not Found: " + se.getMessage());
                     res.getWriter().write(gson.toJson(output));
-                    return;
+                } finally {
+                    int latency = (int) (System.currentTimeMillis() - startTime);
+                    MyServletContextListener.stats.add(new RequestsLatencies("/skiers", "GET", latency));
                 }
+                return;
             }
 
             String resort = req.getParameter("resort");
