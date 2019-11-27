@@ -1,11 +1,11 @@
 import com.google.gson.Gson;
 import dao.ResortsLiftRidesDao;
 import model.*;
+import org.bson.Document;
 
 import javax.servlet.http.HttpServletResponse;
 import java.io.BufferedReader;
 import java.io.IOException;
-import java.sql.SQLException;
 import java.util.Random;
 
 public class SkierServlet extends javax.servlet.http.HttpServlet {
@@ -13,22 +13,16 @@ public class SkierServlet extends javax.servlet.http.HttpServlet {
     private static final Gson gson = new Gson();
 
     protected void doPost(javax.servlet.http.HttpServletRequest req, javax.servlet.http.HttpServletResponse res) throws IOException {
-        long startTime = System.currentTimeMillis();
 
         int pathLength;
-
-        String urlPath = req.getPathInfo();
-
         res.setContentType("application/json");
+        String urlPath = req.getPathInfo();
 
         // check we have a URL!
         if (urlPath == null || urlPath.isEmpty()) {
             res.setStatus(HttpServletResponse.SC_BAD_REQUEST);
             ResponseMsg output = new ResponseMsg().message("Invalid inputs supplied");
             res.getWriter().write(gson.toJson(output));
-
-            int latency = (int) (System.currentTimeMillis() - startTime);
-            MyServletContextListener.stats.add(new RequestsLatencies("/skiers", "POST", latency));
             return;
         }
 
@@ -40,9 +34,6 @@ public class SkierServlet extends javax.servlet.http.HttpServlet {
             res.setStatus(HttpServletResponse.SC_BAD_REQUEST);
             ResponseMsg output = new ResponseMsg().message("Invalid inputs supplied");
             res.getWriter().write(gson.toJson(output));
-
-            int latency = (int) (System.currentTimeMillis() - startTime);
-            MyServletContextListener.stats.add(new RequestsLatencies("/skiers", "POST", latency));
             return;
         }
 
@@ -59,32 +50,30 @@ public class SkierServlet extends javax.servlet.http.HttpServlet {
             int rideTime = reqLifeRide.getTime();
 
             StringBuilder sb = new StringBuilder();
-            sb.append(resortId).append(seasonId).append(dayId).append(skierId).append(rideTime);
+            sb.append(resortId).append(seasonId).append(dayId).append(skierId);
+
+            Document document = new Document();
+            document.append("resort_id", resortId);
+            document.append("season_id", seasonId);
+            document.append("day_id", dayId);
+            document.append("skier_id", skierId);
+            document.append("lift_id", liftId);
+            document.append("ride_time", rideTime);
+            document.append("filter_id", sb.toString());
+            document.append("vertical", (liftId * 10));
 
             resortsLiftRidesDao
-                    .createLiftRide(new ResortsLiftRides(sb.toString(), resortId, seasonId, dayId, skierId, liftId, rideTime, (liftId * 10)));
+                    .createLiftRide(document);
 
             res.setStatus(HttpServletResponse.SC_CREATED);
-        } catch (ClassNotFoundException cex) {
-            res.setStatus(HttpServletResponse.SC_INTERNAL_SERVER_ERROR);
-            ResponseMsg output = new ResponseMsg().message(cex.getMessage());
-            res.getWriter().write(gson.toJson(output));
-        } catch (SQLException se) {
-            res.setStatus(HttpServletResponse.SC_NOT_FOUND);
-            ResponseMsg output = new ResponseMsg().message("Data Not Found: " + se.getMessage());
-            res.getWriter().write(gson.toJson(output));
-        } catch (Exception ex) {
+       } catch (Exception ex) {
             res.setStatus(HttpServletResponse.SC_BAD_REQUEST);
             ResponseMsg output = new ResponseMsg().message("Invalid inputs supplied");
             res.getWriter().write(gson.toJson(output));
-        } finally {
-            int latency = (int) (System.currentTimeMillis() - startTime);
-            MyServletContextListener.stats.add(new RequestsLatencies("/skiers", "POST", latency));
         }
     }
 
     protected void doGet(javax.servlet.http.HttpServletRequest req, javax.servlet.http.HttpServletResponse res) throws IOException {
-        long startTime = System.currentTimeMillis();
         int pathLength;
         int totalVertical = 0;
         String urlPath = req.getPathInfo();
@@ -96,9 +85,6 @@ public class SkierServlet extends javax.servlet.http.HttpServlet {
             res.setStatus(HttpServletResponse.SC_BAD_REQUEST);
             ResponseMsg output = new ResponseMsg().message("Invalid inputs supplied");
             res.getWriter().write(gson.toJson(output));
-
-            int latency = (int) (System.currentTimeMillis() - startTime);
-            MyServletContextListener.stats.add(new RequestsLatencies("/skiers", "GET", latency));
             return;
         }
 
@@ -110,29 +96,31 @@ public class SkierServlet extends javax.servlet.http.HttpServlet {
             res.setStatus(HttpServletResponse.SC_BAD_REQUEST);
             ResponseMsg output = new ResponseMsg().message("Invalid inputs supplied");
             res.getWriter().write(gson.toJson(output));
-
-            int latency = (int) (System.currentTimeMillis() - startTime);
-            MyServletContextListener.stats.add(new RequestsLatencies("/skiers", "GET", latency));
-            return;
         } else {
             if (pathLength == 8) {
                 try {
                     ResortsLiftRidesDao resortsLiftRidesDao = new ResortsLiftRidesDao();
+
+                    // Query
+                    StringBuilder sb = new StringBuilder();
+                    sb.append(urlParts[1]).append(urlParts[3]).append(urlParts[5]).append(urlParts[7]);
+                    Document query = new Document();
+                    query.put("filter_id", sb.toString());
+
+                    // Fields
+                    Document fields = new Document();
+                    fields.put("_id", 0);
+                    fields.put("vertical", 1);
+
                     totalVertical = resortsLiftRidesDao
-                            .getTotalVertical(Integer.parseInt(urlParts[1]), urlParts[3], urlParts[5], Integer.parseInt(urlParts[7]));
+                            .getTotalVertical(query, fields);
+
                     res.setStatus(HttpServletResponse.SC_OK);
                     res.getWriter().write(gson.toJson(totalVertical));
-                } catch (ClassNotFoundException cex) {
+                } catch (Exception cex) {
                     res.setStatus(HttpServletResponse.SC_INTERNAL_SERVER_ERROR);
                     ResponseMsg output = new ResponseMsg().message(cex.getMessage());
                     res.getWriter().write(gson.toJson(output));
-                } catch (SQLException se) {
-                    res.setStatus(HttpServletResponse.SC_NOT_FOUND);
-                    ResponseMsg output = new ResponseMsg().message("Data Not Found: " + se.getMessage());
-                    res.getWriter().write(gson.toJson(output));
-                } finally {
-                    int latency = (int) (System.currentTimeMillis() - startTime);
-                    MyServletContextListener.stats.add(new RequestsLatencies("/skiers", "GET", latency));
                 }
                 return;
             }
