@@ -8,12 +8,12 @@ import org.bson.Document;
 
 public class ResortsLiftRidesDao {
 
-    DatabaseConnection dbConn = DatabaseConnection.getInstance();
-    MongoCollection<Document> collection = dbConn.getDatabase().getCollection("resorts_lift_rides");
-
+    private final String DB_NAME = "upic";
+    private final String COLLECTION_NAME = "resorts_lift_rides";
 
     public int getTotalVertical(Document query, Document fields){
         int totalVertical = 0;
+        MongoCollection<Document> collection = DatabaseConnection.getCollection(DB_NAME, COLLECTION_NAME);
         FindIterable<Document> docs = collection.find(query).projection(fields);
         MongoCursor<Document> cursor = docs.cursor();
         while (cursor.hasNext()) {
@@ -22,6 +22,6 @@ public class ResortsLiftRidesDao {
         return totalVertical;
     }
     public void createLiftRide(Document resortLiftRideDocument) {
-        collection.insertOne(resortLiftRideDocument);
+        DatabaseConnection.getCollection(DB_NAME, COLLECTION_NAME).insertOne(resortLiftRideDocument);
     }
 }
